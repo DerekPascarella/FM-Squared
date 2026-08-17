@@ -1,0 +1,26 @@
+<Window x:Class="FMSquared.FloppyBootWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Insert Floppy Boot Entry" Height="230" Width="460" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap">
+            This adds a "---Boot From Floppy---" entry to the top of the games list,
+            just below the menu itself.
+            <LineBreak/><LineBreak/>
+            The entry is an empty folder with no disc image. Selecting it from the
+            menu makes the FM Towns ask for bootable media, at which point you can
+            insert a physical floppy disk or mount one using an FDD emulator.
+        </TextBlock>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0 15 0 0">
+            <Button Width="80" Padding="0 5" Margin="0 0 10 0" Click="ButtonInsert_Click" IsDefault="True">Insert</Button>
+            <Button Width="80" Padding="0 5" Click="ButtonCancel_Click" IsCancel="True">Cancel</Button>
+        </StackPanel>
+    </Grid>
+</Window>
