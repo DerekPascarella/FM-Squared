@@ -32,9 +32,12 @@ Please note that DocBrown/Wizard SD cards must be formatted as FAT32.
   - [Third-Party Components](#third-party-components)
 
 ## Current Version
-FM^2 is currently at version [2.0.0](https://github.com/DerekPascarella/FM-Squared/releases/tag/2.0.0).
+FM^2 is currently at version [2.0.1](https://github.com/DerekPascarella/FM-Squared/releases/tag/2.0.1).
 
 ## Changelog
+- **Version 2.0.1 (2026-08-26)**
+  - "File/Folder Lock Check" setting is now remembered without having to save changes to SD card first (see [Issue 1](https://github.com/DerekPascarella/FM-Squared/issues/1)).
+  - Dialog boxes cleaned up (see [Issue 2](https://github.com/DerekPascarella/FM-Squared/issues/2)).
 - **Version 2.0.0 (2026-08-17)**
   - Complete rewrite from console application (DocBrown/Wizard Sorter) to cross-platform GUI (Windows, macOS, Linux), renamed FM^2.
   - Almanac and Spellbook now bundled, so users no longer need to source either menu system themselves.
