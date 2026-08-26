@@ -96,13 +96,13 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
             var result = MessageBox.Show(this,
                 $"The following folder is open in another program:\n\n{path}\n\n" +
                 "Close any programs using it, then click Yes to retry.",
-                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
             return Task.FromResult(result == MessageBoxResult.Yes);
         };
 
         _manager.OnArchiveWarning = (message) =>
         {
-            MessageBox.Show(this, message, "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, message, "Warning", MessageBoxButton.OK, MessageBoxImage.None);
             return Task.CompletedTask;
         };
 
@@ -123,7 +123,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
                 MessageBox.Show(this,
                     $"The settings file is marked as read-only:\n\n{readOnlyPath}\n\n" +
                     "Your preferences will not be saved until this is resolved.",
-                    "Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Information", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
         catch { }
@@ -287,7 +287,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
             UseDescriptionForTitle = true
         };
 
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        if (dialog.ShowDialog(new Win32Window(this)) != System.Windows.Forms.DialogResult.OK) return;
 
         string folderPath = dialog.SelectedPath;
 
@@ -311,7 +311,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
             SelectedPath = TempFolderTextBox.Text ?? ""
         };
 
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        if (dialog.ShowDialog(new Win32Window(this)) != System.Windows.Forms.DialogResult.OK) return;
 
         TempFolderTextBox.Text = dialog.SelectedPath;
         SaveSettings();
@@ -319,15 +319,17 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonResetTempFolder_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        var result = MessageBox.Show(this,
             "Reset the Temporary Folder path to default?",
             "Confirmation",
-            MessageBoxButton.YesNo, MessageBoxImage.Question);
+            MessageBoxButton.YesNo, MessageBoxImage.None);
         if (result != MessageBoxResult.Yes) return;
 
         TempFolderTextBox.Text = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
         SaveSettings();
     }
+
+    private void LockCheckBox_Click(object sender, RoutedEventArgs e) => SaveSettings();
 
     private async void DriveList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -361,7 +363,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.None);
         }
         finally
         {
@@ -444,7 +446,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.None);
         }
         finally
         {
@@ -470,7 +472,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         if (_manager.HasFloppyBootEntry)
         {
             MessageBox.Show(this, "The list already contains a floppy boot entry.",
-                "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                "Information", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
@@ -523,7 +525,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
     {
         var result = MessageBox.Show(this,
             "Your disc images will be sorted alphabetically by title.\n\nProceed?",
-            "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
 
         if (result != MessageBoxResult.Yes) return;
 
@@ -541,7 +543,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         if (!SearchInGrid(startIndex, filterText))
         {
             if (!SearchInGrid(0, filterText))
-                MessageBox.Show(this, "No matches found.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, "No matches found.", "Information", MessageBoxButton.OK, MessageBoxImage.None);
         }
     }
 
@@ -603,14 +605,14 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
     {
         if (string.IsNullOrEmpty(_manager.SdCardPath))
         {
-            MessageBox.Show(this, "No SD card selected.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "No SD card selected.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
         var confirmResult = MessageBox.Show(this,
             $"Save changes to \"{_manager.SdCardPath}\" drive?\n\n" +
             "Game folders will be renumbered to match the list order.",
-            "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
 
         if (confirmResult != MessageBoxResult.Yes) return;
 
@@ -619,7 +621,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         {
             var proceed = MessageBox.Show(this,
                 Manager.BuildSpaceWarningMessage(spaceCheck),
-                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
             if (proceed != MessageBoxResult.Yes) return;
         }
 
@@ -660,7 +662,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
                 progressWindow.AllowClose();
                 progressWindow.Close();
 
-                MessageBox.Show("Done!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, "Done!", "Information", MessageBoxButton.OK, MessageBoxImage.None);
 
                 await LoadCard();
             }
@@ -673,7 +675,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.None);
         }
         finally
         {

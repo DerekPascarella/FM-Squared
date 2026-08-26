@@ -143,7 +143,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 "Confirmation",
                 $"The following folder is open in another program:\n\n{path}\n\n" +
                 "Close any programs using it, then click Yes to retry.",
-                ButtonEnum.YesNo, MsBoxIcon.Warning);
+                ButtonEnum.YesNo, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             var result = await msgBox.ShowWindowDialogAsync(this);
             return result == ButtonResult.Yes;
         };
@@ -151,7 +151,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _manager.OnArchiveWarning = async (message) =>
         {
             var msgBox = MessageBoxManager.GetMessageBoxStandard(
-                "Warning", message, ButtonEnum.Ok, MsBoxIcon.Warning);
+                "Warning", message, ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             await msgBox.ShowWindowDialogAsync(this);
         };
 
@@ -182,7 +182,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     "Information",
                     $"The settings file is marked as read-only:\n\n{readOnlyPath}\n\n" +
                     "Your preferences will not be saved until this is resolved.",
-                    ButtonEnum.Ok, MsBoxIcon.Warning);
+                    ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
                 await msgBox.ShowWindowDialogAsync(this);
             }
         }
@@ -409,13 +409,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var msgBox = MessageBoxManager.GetMessageBoxStandard(
             "Confirmation",
             "Reset the Temporary Folder path to default?",
-            ButtonEnum.YesNo, MsBoxIcon.Question);
+            ButtonEnum.YesNo, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
         var result = await msgBox.ShowWindowDialogAsync(this);
         if (result != ButtonResult.Yes) return;
 
         TempFolderTextBox.Text = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
         SaveSettings();
     }
+
+    private void LockCheckBox_Click(object? sender, RoutedEventArgs e) => SaveSettings();
 
     private async void DriveList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
@@ -451,7 +453,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.Error);
+            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             await msgBox.ShowWindowDialogAsync(this);
         }
         finally
@@ -548,7 +550,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.Error);
+            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             await msgBox.ShowWindowDialogAsync(this);
         }
         finally
@@ -576,7 +578,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var msgBox = MessageBoxManager.GetMessageBoxStandard(
                 "Information", "The list already contains a floppy boot entry.",
-                ButtonEnum.Ok, MsBoxIcon.Info);
+                ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             await msgBox.ShowWindowDialogAsync(this);
             return;
         }
@@ -633,7 +635,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var msgBox = MessageBoxManager.GetMessageBoxStandard(
                 "Confirmation",
                 "Your disc images will be sorted alphabetically by title.\n\nProceed?",
-                ButtonEnum.YesNo, MsBoxIcon.Question);
+                ButtonEnum.YesNo, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
 
             var result = await msgBox.ShowWindowDialogAsync(this);
             if (result != ButtonResult.Yes) return;
@@ -667,7 +669,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (!SearchInGrid(0, filterText))
             {
                 var msgBox = MessageBoxManager.GetMessageBoxStandard(
-                    "Information", "No matches found.", ButtonEnum.Ok, MsBoxIcon.Info);
+                    "Information", "No matches found.", ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
                 await msgBox.ShowWindowDialogAsync(this);
             }
         }
@@ -727,7 +729,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(_manager.SdCardPath))
         {
-            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", "No SD card selected.", ButtonEnum.Ok, MsBoxIcon.Warning);
+            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", "No SD card selected.", ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             await msgBox.ShowWindowDialogAsync(this);
             return;
         }
@@ -736,7 +738,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "Confirmation",
             $"Save changes to \"{_manager.SdCardPath}\" drive?\n\n" +
             "Game folders will be renumbered to match the list order.",
-            ButtonEnum.YesNo, MsBoxIcon.Question);
+            ButtonEnum.YesNo, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
 
         var confirmResult = await confirmBox.ShowWindowDialogAsync(this);
         if (confirmResult != ButtonResult.Yes) return;
@@ -747,7 +749,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var spaceBox = MessageBoxManager.GetMessageBoxStandard(
                 "Confirmation",
                 Manager.BuildSpaceWarningMessage(spaceCheck),
-                ButtonEnum.YesNo, MsBoxIcon.Warning);
+                ButtonEnum.YesNo, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             if (await spaceBox.ShowWindowDialogAsync(this) != ButtonResult.Yes) return;
         }
 
@@ -787,7 +789,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 progressWindow.AllowClose();
                 progressWindow.Close();
 
-                var doneBox = MessageBoxManager.GetMessageBoxStandard("Information", "Done!", ButtonEnum.Ok, MsBoxIcon.Info);
+                var doneBox = MessageBoxManager.GetMessageBoxStandard("Information", "Done!", ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
                 await doneBox.ShowWindowDialogAsync(this);
 
                 await LoadCard();
@@ -801,7 +803,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.Error);
+            var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
             await msgBox.ShowWindowDialogAsync(this);
         }
         finally
@@ -1153,7 +1155,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.Error);
+                var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", ex.Message, ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
                 await msgBox.ShowWindowDialogAsync(this);
             }
             return;
@@ -1187,7 +1189,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             if (invalid.Count > 0)
             {
-                var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", string.Join(Environment.NewLine, invalid), ButtonEnum.Ok, MsBoxIcon.Error);
+                var msgBox = MessageBoxManager.GetMessageBoxStandard("Error", string.Join(Environment.NewLine, invalid), ButtonEnum.Ok, MsBoxIcon.None, windowStartupLocation: WindowStartupLocation.CenterOwner);
                 await msgBox.ShowWindowDialogAsync(this);
             }
         }
