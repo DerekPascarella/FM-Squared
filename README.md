@@ -32,9 +32,13 @@ Please note that DocBrown/Wizard SD cards must be formatted as FAT32.
   - [Third-Party Components](#third-party-components)
 
 ## Current Version
-FM^2 is currently at version [2.0.1](https://github.com/DerekPascarella/FM-Squared/releases/tag/2.0.1).
+FM^2 is currently at version [2.0.2](https://github.com/DerekPascarella/FM-Squared/releases/tag/2.0.2).
 
 ## Changelog
+- **Version 2.0.2 (2026-10-06)**
+  - Dragging entry up or down on Games List now automatically scrolls on Linux and macOS (see [Issue 5](https://github.com/DerekPascarella/FM-Squared/issues/5)).
+  - Improved SD card auto-detection (see [Issue 6](https://github.com/DerekPascarella/FM-Squared/issues/6)).
+  - Prevent leftover temporary folders after SD card saves (see [Issue 7](https://github.com/DerekPascarella/FM-Squared/issues/7)).
 - **Version 2.0.1 (2026-08-26)**
   - "File/Folder Lock Check" setting is now remembered without having to save changes to SD card first (see [Issue 1](https://github.com/DerekPascarella/FM-Squared/issues/1)).
   - Dialog boxes cleaned up (see [Issue 2](https://github.com/DerekPascarella/FM-Squared/issues/2)).

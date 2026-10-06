@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using FMSquared.Core.Services;
@@ -9,6 +10,11 @@ namespace FMSquared.Core.Models;
 /// </summary>
 public class TownsGame : INotifyPropertyChanged
 {
+    internal Action? EnsureCanMutate { get; set; }
+    internal Action<Action>? NotifyObservers { get; set; }
+
+    internal string SaveId { get; set; } = Guid.NewGuid().ToString("N");
+
     private string _name = string.Empty;
     private int _sdNumber;
     private WorkMode _workMode = WorkMode.None;
@@ -24,6 +30,7 @@ public class TownsGame : INotifyPropertyChanged
         get => _name;
         set
         {
+            EnsureCanMutate?.Invoke();
             var sanitized = AsciiSanitizer.SanitizeName(value);
             if (_name != sanitized) { _name = sanitized; OnPropertyChanged(); }
         }
@@ -37,7 +44,7 @@ public class TownsGame : INotifyPropertyChanged
     public int SdNumber
     {
         get => _sdNumber;
-        set { if (_sdNumber != value) { _sdNumber = value; OnPropertyChanged(); OnPropertyChanged(nameof(Location)); OnPropertyChanged(nameof(IsNotOnSdCard)); } }
+        set { EnsureCanMutate?.Invoke(); if (_sdNumber != value) { _sdNumber = value; OnPropertyChanged(); OnPropertyChanged(nameof(Location)); OnPropertyChanged(nameof(IsNotOnSdCard)); } }
     }
 
     /// <summary>
@@ -51,42 +58,56 @@ public class TownsGame : INotifyPropertyChanged
     public WorkMode WorkMode
     {
         get => _workMode;
-        set { if (_workMode != value) { _workMode = value; OnPropertyChanged(); } }
+        set { EnsureCanMutate?.Invoke(); if (_workMode != value) { _workMode = value; OnPropertyChanged(); } }
     }
 
     /// <summary>
     /// The disc image format.
     /// </summary>
-    public FileFormat FileFormat { get; set; } = FileFormat.Uncompressed;
+    private FileFormat _fileFormat = FileFormat.Uncompressed;
+    public FileFormat FileFormat { get => _fileFormat; set { EnsureCanMutate?.Invoke(); _fileFormat = value; } }
 
     /// <summary>
     /// For compressed archives, stores the format of the disc image inside
     /// the archive (e.g., CueBin, CloneCd). Null when FileFormat is not Compressed.
     /// </summary>
-    public FileFormat? InnerFileFormat { get; set; }
+    private FileFormat? _innerFileFormat = null;
+    public FileFormat? InnerFileFormat { get => _innerFileFormat; set { EnsureCanMutate?.Invoke(); _innerFileFormat = value; } }
 
     /// <summary>
     /// For compressed archives, identifies the disc image entry inside the
     /// archive so save can extract just its file set. Null when FileFormat
     /// is not Compressed.
     /// </summary>
-    public ArchiveEntryInfo? SelectedArchiveEntry { get; set; }
+    private ArchiveEntryInfo? _selectedArchiveEntry = null;
+    public ArchiveEntryInfo? SelectedArchiveEntry { get => _selectedArchiveEntry; set { EnsureCanMutate?.Invoke(); _selectedArchiveEntry = value; } }
 
     /// <summary>
     /// Full paths to all disc image files (e.g., .ccd + .img + .sub).
     /// </summary>
-    public List<string> ImageFiles { get; set; } = new();
+    private Collection<string>? _imageFiles;
+    public Collection<string> ImageFiles
+    {
+        get => _imageFiles ??= new GuardedImageCollection(() => EnsureCanMutate?.Invoke());
+        set
+        {
+            EnsureCanMutate?.Invoke();
+            _imageFiles = new GuardedImageCollection(() => EnsureCanMutate?.Invoke(), value);
+        }
+    }
 
     /// <summary>
     /// Full path to the game's folder on the SD card (e.g., "H:\02").
     /// Empty if the item is not on the SD card.
     /// </summary>
-    public string FullFolderPath { get; set; } = string.Empty;
+    private string _fullFolderPath = string.Empty;
+    public string FullFolderPath { get => _fullFolderPath; set { EnsureCanMutate?.Invoke(); _fullFolderPath = value; } }
 
     /// <summary>
     /// Source path for items being added from PC (not yet on SD card).
     /// </summary>
-    public string SourcePath { get; set; } = string.Empty;
+    private string _sourcePath = string.Empty;
+    public string SourcePath { get => _sourcePath; set { EnsureCanMutate?.Invoke(); _sourcePath = value; } }
 
     private long _length;
 
@@ -96,7 +117,7 @@ public class TownsGame : INotifyPropertyChanged
     public long Length
     {
         get => _length;
-        set { if (_length != value) { _length = value; OnPropertyChanged(); } }
+        set { EnsureCanMutate?.Invoke(); if (_length != value) { _length = value; OnPropertyChanged(); } }
     }
 
     /// <summary>
@@ -108,7 +129,8 @@ public class TownsGame : INotifyPropertyChanged
     /// Whether this entry has a Title.txt but no disc image. Placeholder rows
     /// (e.g., "---Boot From Floppy---") are valid menu entries on DocBrown/Wizard.
     /// </summary>
-    public bool IsPlaceholder { get; set; }
+    private bool _isPlaceholder = false;
+    public bool IsPlaceholder { get => _isPlaceholder; set { EnsureCanMutate?.Invoke(); _isPlaceholder = value; } }
 
     /// <summary>
     /// Whether the info button should be available for this item.
@@ -123,7 +145,8 @@ public class TownsGame : INotifyPropertyChanged
     /// <summary>
     /// Set when the user renames the entry so Title.txt gets rewritten on save.
     /// </summary>
-    public bool TitleDirty { get; set; }
+    private bool _titleDirty = false;
+    public bool TitleDirty { get => _titleDirty; set { EnsureCanMutate?.Invoke(); _titleDirty = value; } }
 
     /// <summary>
     /// Whether the current search text matches Name.
@@ -150,6 +173,8 @@ public class TownsGame : INotifyPropertyChanged
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        void Notify() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        if (NotifyObservers == null) Notify();
+        else NotifyObservers(Notify);
     }
 }

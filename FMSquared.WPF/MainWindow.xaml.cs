@@ -28,11 +28,24 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
     // display labels and the path can't be recovered from them.
     private readonly List<string> _drivePaths = new();
 
+    private object? _rowDragInfo;
+    private int _rowDragVersion;
+    private int _operationVersion;
+    private bool CannotEdit => IsBusy || !_manager.CanEdit || !HasSdPath;
+
     private bool _isBusy;
     public bool IsBusy
     {
         get => _isBusy;
-        set { _isBusy = value; RaisePropertyChanged(); }
+        set
+        {
+            _isBusy = value;
+            if (value)
+            {
+                _operationVersion++;
+            }
+            RaisePropertyChanged();
+        }
     }
 
     private bool _isUsingCustomPath;
@@ -91,20 +104,13 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
         _manager.ItemList.CollectionChanged += (_, _) => { UpdateGamesListHeader(); UpdateSearchMatches(); };
 
-        _manager.OnFolderLocked = (path) =>
-        {
-            var result = MessageBox.Show(this,
-                $"The following folder is open in another program:\n\n{path}\n\n" +
-                "Close any programs using it, then click Yes to retry.",
-                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
-            return Task.FromResult(result == MessageBoxResult.Yes);
-        };
-
-        _manager.OnArchiveWarning = (message) =>
-        {
-            MessageBox.Show(this, message, "Warning", MessageBoxButton.OK, MessageBoxImage.None);
-            return Task.CompletedTask;
-        };
+        _manager.OnFolderLocked = path => ConfirmOnUiAsync(
+            $"The following folder is open in another program:\n\n{path}\n\n" +
+            "Close any programs using it, then click Yes to retry.");
+        _manager.OnDiscardIncompletePreparation = path => ConfirmOnUiAsync(
+            $"Discard the recorded incomplete output at:\n\n{path}\n\n" +
+            "Completed prepared games will be kept. Choose No to preserve this output for review.");
+        _manager.OnArchiveWarning = message => ShowOnUiAsync("Warning", message);
 
         this.Loaded += MainWindow_Loaded;
         this.Closing += MainWindow_Closing;
@@ -112,6 +118,12 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
         RefreshDriveList();
     }
+
+    private Task<bool> ConfirmOnUiAsync(string message) => Dispatcher.InvokeAsync(() =>
+        MessageBox.Show(this, message, "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None) == MessageBoxResult.Yes).Task;
+
+    private Task ShowOnUiAsync(string title, string message) => Dispatcher.InvokeAsync(() =>
+        MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.None)).Task;
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
@@ -259,9 +271,12 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
                 {
                     try
                     {
+                        // Real cards are FAT32. Skipping other formats keeps a sleeping HDD from
+                        // spinning up and stalling launch.
                         string root = drive.RootDirectory.FullName;
-                        if (File.Exists(Path.Combine(root, Constants.DocBrownIniFile)) ||
-                            File.Exists(Path.Combine(root, Constants.WizardIniFile)))
+                        if (drive.DriveFormat.StartsWith("FAT") &&
+                            (PathCasing.FileExistsIgnoreCase(Path.Combine(root, Constants.DocBrownIniFile)) ||
+                             PathCasing.FileExistsIgnoreCase(Path.Combine(root, Constants.WizardIniFile))))
                         {
                             autoSelectIndex = index;
                         }
@@ -277,10 +292,12 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
             DriveComboBox.SelectedIndex = autoSelectIndex;
     }
 
-    private void ButtonRefreshDrives_Click(object sender, RoutedEventArgs e) => RefreshDriveList();
+    private void ButtonRefreshDrives_Click(object sender, RoutedEventArgs e) { if (!IsBusy) RefreshDriveList(); }
 
     private async void ButtonBrowseSdPath_Click(object sender, RoutedEventArgs e)
     {
+        if (IsBusy) return;
+        int version = _operationVersion;
         var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
             Description = "Select SD card or folder",
@@ -289,14 +306,16 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
         if (dialog.ShowDialog(new Win32Window(this)) != System.Windows.Forms.DialogResult.OK) return;
 
+        if (IsBusy || version != _operationVersion) return;
+
         string folderPath = dialog.SelectedPath;
 
         IsUsingCustomPath = true;
         CustomSdPath = folderPath;
         DriveComboBox.SelectedIndex = -1;
 
-        _manager.ToolsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools");
         _manager.SdCardPath = folderPath;
+        _manager.ToolsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools");
 
         RaisePropertyChanged(nameof(HasSdPath));
         await LoadCard();
@@ -304,6 +323,8 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonBrowseTempFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (IsBusy) return;
+        int version = _operationVersion;
         var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
             Description = "Select temporary folder",
@@ -313,23 +334,27 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
         if (dialog.ShowDialog(new Win32Window(this)) != System.Windows.Forms.DialogResult.OK) return;
 
+        if (IsBusy || version != _operationVersion) return;
         TempFolderTextBox.Text = dialog.SelectedPath;
         SaveSettings();
     }
 
     private void ButtonResetTempFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (IsBusy) return;
+        int version = _operationVersion;
         var result = MessageBox.Show(this,
             "Reset the Temporary Folder path to default?",
             "Confirmation",
             MessageBoxButton.YesNo, MessageBoxImage.None);
         if (result != MessageBoxResult.Yes) return;
 
+        if (IsBusy || version != _operationVersion) return;
         TempFolderTextBox.Text = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
         SaveSettings();
     }
 
-    private void LockCheckBox_Click(object sender, RoutedEventArgs e) => SaveSettings();
+    private void LockCheckBox_Click(object sender, RoutedEventArgs e) { if (!IsBusy) SaveSettings(); }
 
     private async void DriveList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -341,34 +366,41 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         IsUsingCustomPath = false;
         CustomSdPath = string.Empty;
 
-        _manager.ToolsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools");
         _manager.SdCardPath = drivePath;
+        _manager.ToolsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools");
 
         RaisePropertyChanged(nameof(HasSdPath));
         await LoadCard();
     }
 
-    private async Task LoadCard()
+    private async Task<bool> LoadCard(bool alreadyBusy = false)
     {
-        IsBusy = true;
-        FilterTextBox.Text = string.Empty;
-        IsFilterActive = false;
-
+        if (!alreadyBusy && IsBusy) return false;
+        if (!alreadyBusy) IsBusy = true;
         try
         {
             await _manager.LoadItemsFromCardAsync();
-
-            UpdateGamesListHeader();
-            UpdateOdeDisplay();
+            RefreshDisplayedState();
+            return true;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.None);
+            await ShowOnUiAsync("Error", ex.Message);
+            return false;
         }
         finally
         {
-            IsBusy = false;
+            if (!alreadyBusy) IsBusy = false;
         }
+    }
+
+    private void RefreshDisplayedState()
+    {
+        FilterTextBox.Text = string.Empty;
+        IsFilterActive = false;
+        GameGrid.ItemsSource = _manager.ItemList;
+        UpdateGamesListHeader();
+        UpdateOdeDisplay();
     }
 
     private void UpdateOdeDisplay()
@@ -391,6 +423,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void MenuType_Changed(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         // The default radio raises Checked while the window is still being
         // parsed, before the other radio exists.
         if (_suppressMenuTypeChange || RadioSpellbook == null) return;
@@ -404,6 +437,8 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonAdd_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
+        int version = _operationVersion;
         var dialog = new OpenFileDialog
         {
             Title = "Select disc image file(s)",
@@ -413,11 +448,13 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
         if (dialog.ShowDialog(this) != true) return;
 
+        if (CannotEdit || version != _operationVersion) return;
         _ = AddGamesFromPaths(dialog.FileNames);
     }
 
     private async Task AddGamesFromPaths(string[] paths, int insertIndex = -1)
     {
+        if (CannotEdit) return;
         IsBusy = true;
 
         ProgressWindow? progressWindow = null;
@@ -461,6 +498,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonRemove_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         var selected = GameGrid.SelectedItems?.Cast<TownsGame>().ToList();
         if (selected == null || selected.Count == 0) return;
 
@@ -469,6 +507,8 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonFloppyBoot_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
+        int version = _operationVersion;
         if (_manager.HasFloppyBootEntry)
         {
             MessageBox.Show(this, "The list already contains a floppy boot entry.",
@@ -479,12 +519,13 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         var dialog = new FloppyBootWindow();
         dialog.Owner = this;
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() == true && !CannotEdit && version == _operationVersion && !_manager.HasFloppyBootEntry)
             _manager.InsertFloppyBootEntry();
     }
 
     private void ButtonMoveUp_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         if (GameGrid.SelectedItem is not TownsGame item) return;
         if (item.IsMenuItem) return;
         int index = _manager.ItemList.IndexOf(item);
@@ -505,6 +546,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonMoveDown_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         if (GameGrid.SelectedItem is not TownsGame item) return;
         if (item.IsMenuItem) return;
 
@@ -523,12 +565,15 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonSort_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
+        int version = _operationVersion;
         var result = MessageBox.Show(this,
             "Your disc images will be sorted alphabetically by title.\n\nProceed?",
             "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
 
         if (result != MessageBoxResult.Yes) return;
 
+        if (CannotEdit || version != _operationVersion) return;
         _manager.SortList();
     }
 
@@ -603,82 +648,56 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private async void ButtonSave_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_manager.SdCardPath))
-        {
-            MessageBox.Show(this, "No SD card selected.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
-            return;
-        }
-
-        var confirmResult = MessageBox.Show(this,
-            $"Save changes to \"{_manager.SdCardPath}\" drive?\n\n" +
-            "Game folders will be renumbered to match the list order.",
-            "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
-
-        if (confirmResult != MessageBoxResult.Yes) return;
-
-        var spaceCheck = await _manager.CalculateRequiredSpaceAsync();
-        if (!spaceCheck.HasSufficientSpace)
-        {
-            var proceed = MessageBox.Show(this,
-                Manager.BuildSpaceWarningMessage(spaceCheck),
-                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.None);
-            if (proceed != MessageBoxResult.Yes) return;
-        }
-
+        if (IsBusy || !HasSdPath) return;
+        if (!GameGrid.CommitEdit(DataGridEditingUnit.Cell, true) ||
+            !GameGrid.CommitEdit(DataGridEditingUnit.Row, true)) return;
         IsBusy = true;
-
+        string tempRoot = GetTempFolderRoot();
+        bool lockCheck = LockCheckBox.IsChecked == true;
+        ProgressWindow? progressWindow = null;
         try
         {
-            if (LockCheckBox.IsChecked == true)
-            {
-                bool lockCheckPassed = await RunLockCheck();
-                if (!lockCheckPassed)
-                    return;
-            }
+            if (!await ConfirmOnUiAsync($"Save changes to \"{_manager.SdCardPath}\" drive?\n\n" +
+                "Game folders will be renumbered to match the list order.")) return;
+            var spaceCheck = await _manager.CalculateRequiredSpaceAsync(tempRoot);
+            if (!spaceCheck.HasSufficientSpace && !await ConfirmOnUiAsync(Manager.BuildSpaceWarningMessage(spaceCheck))) return;
+            if (lockCheck && !await RunLockCheck()) return;
 
-            var progressWindow = new ProgressWindow();
+            progressWindow = new ProgressWindow();
             progressWindow.Owner = this;
             progressWindow.TotalItems = _manager.ItemList.Count(g => !g.IsMenuItem);
             progressWindow.IsIndeterminate = true;
             progressWindow.Show();
-
-            try
-            {
-                var progress = new Progress<string>(msg => Dispatcher.Invoke(() =>
-                {
-                    progressWindow.TextContent = msg;
-                }));
-
-                var itemProgress = new Progress<int>(count => Dispatcher.Invoke(() =>
-                {
-                    progressWindow.ProcessedItems = count;
-                }));
-
-                string tempRoot = GetTempFolderRoot();
-                await _manager.SaveAsync(progress, itemProgress, string.IsNullOrEmpty(tempRoot) ? null : tempRoot);
-
-                SaveSettings();
-
-                progressWindow.AllowClose();
-                progressWindow.Close();
-
-                MessageBox.Show(this, "Done!", "Information", MessageBoxButton.OK, MessageBoxImage.None);
-
-                await LoadCard();
-            }
-            finally
-            {
-                progressWindow.AllowClose();
-                if (progressWindow.IsVisible)
-                    progressWindow.Close();
-            }
+            var progress = new Progress<string>(message => progressWindow.TextContent = message);
+            var itemProgress = new Progress<int>(count => progressWindow.ProcessedItems = count);
+            await _manager.SaveAsync(progress, itemProgress, tempRoot);
+            string outcome = _manager.LastSaveOutcome ?? "Saved.";
+            SaveSettings();
+            progressWindow.AllowClose();
+            progressWindow.Close();
+            if (await LoadCard(alreadyBusy: true)) await ShowOnUiAsync("Information", outcome);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.None);
+            string message = ex.Message;
+            try
+            {
+                await _manager.RecoverCardAsync();
+                RefreshDisplayedState();
+            }
+            catch (Exception recoveryError)
+            {
+                message += "\n\nRecovery is incomplete. Editing is blocked until recovery succeeds. " + recoveryError.Message;
+            }
+            await ShowOnUiAsync("Error", message);
         }
         finally
         {
+            if (progressWindow != null)
+            {
+                progressWindow.AllowClose();
+                if (progressWindow.IsVisible) progressWindow.Close();
+            }
             IsBusy = false;
         }
     }
@@ -728,6 +747,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void MenuItemRename_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         if (GameGrid.SelectedItem != null)
             GameGrid.BeginEdit();
     }
@@ -749,6 +769,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void RenameSelectedItems(Func<string, string> transform)
     {
+        if (CannotEdit) return;
         var items = GameGrid.SelectedItems?.Cast<TownsGame>()
             .Where(g => !g.IsMenuItem)
             .ToList();
@@ -776,6 +797,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void MenuItemRenameFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         var items = GameGrid.SelectedItems?.Cast<TownsGame>()
             .Where(g => !g.IsMenuItem && g.IsNotOnSdCard)
             .ToList();
@@ -809,6 +831,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void MenuItemRenameFile_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         var items = GameGrid.SelectedItems?.Cast<TownsGame>()
             .Where(g => !g.IsMenuItem)
             .ToList();
@@ -838,6 +861,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ContextMenu_Opened(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) { if (sender is ContextMenu blocked) blocked.IsOpen = false; return; }
         if (sender is not ContextMenu menu) return;
 
         int count = GameGrid.SelectedItems?.Cast<TownsGame>()
@@ -878,7 +902,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void Window_DragOver(object sender, DragEventArgs e)
     {
-        if (IsBusy || IsFilterActive || !HasSdPath || !e.Data.GetDataPresent(DataFormats.FileDrop))
+        if (CannotEdit || IsFilterActive || !HasSdPath || !e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             e.Effects = DragDropEffects.None;
             e.Handled = true;
@@ -887,7 +911,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private async void Window_Drop(object sender, DragEventArgs e)
     {
-        if (IsBusy || IsFilterActive || !HasSdPath) return;
+        if (CannotEdit || IsFilterActive || !HasSdPath) return;
 
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
@@ -900,6 +924,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (CannotEdit) return;
         // Skip these while editing a cell or typing in the filter box. PreviewKeyDown
         // tunnels to the window first, so otherwise Delete wipes the row mid-edit.
         if (_isCellEditing || e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase)
@@ -938,6 +963,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void GameGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
     {
+        if (CannotEdit) { e.Cancel = true; return; }
         if (e.Row.DataContext is TownsGame game && game.IsMenuItem)
         {
             e.Cancel = true;
@@ -955,37 +981,24 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void GameGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
     {
-        // Editing ended, whatever the outcome.
         _isCellEditing = false;
-
-        if (e.EditAction == DataGridEditAction.Cancel) return;
-        if (e.Row.DataContext is not TownsGame game) return;
-        if (_editOldValue == null) return;
-
-        string? newValue = null;
-
-        if (e.Column.Header?.ToString() == "Title" &&
-            e.EditingElement is System.Windows.Controls.ContentPresenter cp)
-        {
-            var tb = FindVisualChild<System.Windows.Controls.TextBox>(cp);
-            if (tb != null)
-                newValue = tb.Text;
-        }
-
-        if (newValue != null && _editOldValue != newValue)
-        {
-            _manager.UndoManager.RecordChange(new PropertyEditOperation
-            {
-                Item = game,
-                PropertyName = nameof(TownsGame.Name),
-                OldValue = _editOldValue,
-                NewValue = newValue
-            });
-
-            game.TitleDirty = true;
-        }
-
+        string? oldValue = _editOldValue;
         _editOldValue = null;
+        if (e.EditAction == DataGridEditAction.Cancel || oldValue == null) return;
+        if (e.Row.DataContext is not TownsGame game || e.Column.Header?.ToString() != "Title") return;
+        var editor = e.EditingElement as System.Windows.Controls.TextBox ?? FindVisualChild<System.Windows.Controls.TextBox>(e.EditingElement);
+        if (editor == null) return;
+        game.Name = editor.Text ?? string.Empty;
+        editor.Text = game.Name;
+        if (oldValue == game.Name) return;
+        game.TitleDirty = true;
+        _manager.UndoManager.RecordChange(new PropertyEditOperation
+        {
+            Item = game,
+            PropertyName = nameof(TownsGame.Name),
+            OldValue = oldValue,
+            NewValue = game.Name
+        });
     }
 
     private void GameGrid_PreparingCellForEdit(object? sender, DataGridPreparingCellForEditEventArgs e)
@@ -997,6 +1010,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         // automatically, and its visual tree may not exist yet.
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
         {
+            if (CannotEdit || !_isCellEditing) return;
             var tb = FindVisualChild<System.Windows.Controls.TextBox>(cp);
             if (tb != null)
             {
@@ -1022,11 +1036,13 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     private void ButtonUndo_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         _manager.UndoManager.Undo();
     }
 
     private void ButtonRedo_Click(object sender, RoutedEventArgs e)
     {
+        if (CannotEdit) return;
         _manager.UndoManager.Redo();
     }
 
@@ -1034,7 +1050,13 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     void GongSolutions.Wpf.DragDrop.IDropTarget.DragOver(GongSolutions.Wpf.DragDrop.IDropInfo dropInfo)
     {
-        if (dropInfo == null || IsFilterActive) return;
+        if (dropInfo == null) return;
+        if (dropInfo.DragInfo != null && !ReferenceEquals(_rowDragInfo, dropInfo.DragInfo))
+        {
+            _rowDragInfo = dropInfo.DragInfo;
+            _rowDragVersion = _operationVersion;
+        }
+        if (CannotEdit || IsFilterActive || (dropInfo.DragInfo != null && _rowDragVersion != _operationVersion)) { dropInfo.Effects = DragDropEffects.None; return; }
 
         if (dropInfo.DragInfo == null)
         {
@@ -1067,7 +1089,8 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
 
     async void GongSolutions.Wpf.DragDrop.IDropTarget.Drop(GongSolutions.Wpf.DragDrop.IDropInfo dropInfo)
     {
-        if (dropInfo == null || IsFilterActive) return;
+        if (dropInfo == null) return;
+        if (CannotEdit || IsFilterActive || (dropInfo.DragInfo != null && ReferenceEquals(_rowDragInfo, dropInfo.DragInfo) && _rowDragVersion != _operationVersion)) { dropInfo.Effects = DragDropEffects.None; return; }
 
         if (dropInfo.DragInfo == null)
         {
@@ -1085,7 +1108,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         var draggedItems = GongSolutions.Wpf.DragDrop.DefaultDropHandler
             .ExtractData(dropInfo.Data).OfType<TownsGame>().ToList();
 
-        if (draggedItems.Count == 0) return;
+        if (draggedItems.Count == 0 || draggedItems.Any(g => g.IsMenuItem || !_manager.ItemList.Contains(g))) return;
 
         var oldOrder = _manager.ItemList.ToList();
 

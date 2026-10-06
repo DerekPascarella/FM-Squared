@@ -28,33 +28,6 @@ public static class LockChecker
     }
 
     /// <summary>
-    /// Tests if a directory can be renamed by doing a temporary rename and reverting.
-    /// This catches cases where File Explorer or another process has the folder open.
-    /// </summary>
-    public static string? CheckDirectoryCanBeRenamed(string dirPath)
-    {
-        if (!Directory.Exists(dirPath))
-            return null;
-
-        string tempName = dirPath + "_lockcheck_" + Guid.NewGuid().ToString("N")[..6];
-        try
-        {
-            Directory.Move(dirPath, tempName);
-            Directory.Move(tempName, dirPath);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            // Try to move it back if the first move succeeded.
-            if (Directory.Exists(tempName) && !Directory.Exists(dirPath))
-            {
-                try { Directory.Move(tempName, dirPath); } catch { }
-            }
-            return ex.Message;
-        }
-    }
-
-    /// <summary>
     /// Recursively checks all files in a directory for write accessibility.
     /// </summary>
     public static Dictionary<string, string> CheckDirectoryAccessibility(string dirPath)
@@ -98,17 +71,9 @@ public static class LockChecker
                 }
                 else if (Directory.Exists(path))
                 {
-                    var dirError = CheckDirectoryCanBeRenamed(path);
-                    if (dirError != null)
-                    {
-                        locked[path] = dirError;
-                    }
-                    else
-                    {
-                        var fileErrors = CheckDirectoryAccessibility(path);
-                        foreach (var kvp in fileErrors)
-                            locked[kvp.Key] = kvp.Value;
-                    }
+                    var fileErrors = CheckDirectoryAccessibility(path);
+                    foreach (var kvp in fileErrors)
+                        locked[kvp.Key] = kvp.Value;
                 }
             });
 

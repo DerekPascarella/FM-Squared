@@ -34,6 +34,18 @@ public static class Cue2CcdConverter
         });
     }
 
+    internal static Dictionary<string, long> ExpectedOutput(string cueFilePath)
+    {
+        var disc = DiscLayoutBuilder.Build(CueParser.Parse(cueFilePath));
+        string name = Path.GetFileNameWithoutExtension(cueFilePath);
+        return new(StringComparer.OrdinalIgnoreCase)
+        {
+            [name + ".ccd"] = Encoding.UTF8.GetByteCount(CcdFileWriter.Generate(disc)),
+            [name + ".img"] = disc.TotalSectors * 2352L,
+            [name + ".sub"] = disc.TotalSectors * 96L
+        };
+    }
+
     #region CUE Parser
 
     private class CueSheet

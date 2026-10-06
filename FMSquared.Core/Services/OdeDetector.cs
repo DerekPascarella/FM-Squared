@@ -25,10 +25,10 @@ public static class OdeDetector
             return OdeKind.Wizard;
 
         // Fall back to the settings file the ODE firmware reads from the root.
-        if (File.Exists(Path.Combine(sdCardPath, Constants.DocBrownIniFile)))
+        if (PathCasing.FileExistsIgnoreCase(Path.Combine(sdCardPath, Constants.DocBrownIniFile)))
             return OdeKind.DocBrown;
 
-        if (File.Exists(Path.Combine(sdCardPath, Constants.WizardIniFile)))
+        if (PathCasing.FileExistsIgnoreCase(Path.Combine(sdCardPath, Constants.WizardIniFile)))
             return OdeKind.Wizard;
 
         return OdeKind.Unknown;

@@ -9,6 +9,12 @@ public class SpaceCheckResult
     public long AvailableSpace { get; set; }
     public long SpaceToBeFreed { get; set; }
     public long NewItemsSize { get; set; }
+    public long TemporarySpaceNeeded { get; set; }
+    public string TemporaryFolderPath { get; set; } = string.Empty;
+    public bool TemporarySharesCardVolume { get; set; }
+    public long ExternalTemporarySpaceNeeded { get; set; }
+    public long TemporaryAvailableSpace { get; set; }
+    public long TemporaryShortfall { get; set; }
     public long MenuSpaceNeeded { get; set; }
     public long MetadataBuffer { get; set; }
     public long TotalNeeded { get; set; }

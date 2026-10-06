@@ -5,8 +5,7 @@ namespace FMSquared.Core.Services;
 /// <summary>
 /// Scans an SD card for FM Towns games. A folder counts as a game when it
 /// has a Title.txt or contains a recognized disc image anywhere inside it.
-/// Folders that have neither are ignored and left untouched, except numbered
-/// ones, which get cleaned up by orphan deletion on save.
+/// Folders that have neither are ignored and left untouched.
 /// </summary>
 public static class CardScanner
 {
@@ -32,6 +31,7 @@ public static class CardScanner
             .Select(d => new { Path = d, Name = Path.GetFileName(d) })
             .Where(d => !d.Name.StartsWith('.'))
             .Where(d => d.Name != Constants.MenuFolderName)
+            .Where(d => !d.Name.Equals(CardSaveTransaction.WorkName, StringComparison.OrdinalIgnoreCase))
             .Where(d => !d.Name.StartsWith(Constants.InvalidFolderPrefix, StringComparison.OrdinalIgnoreCase))
             .Where(d => !Constants.IgnoredFolderNames.Contains(d.Name, StringComparer.OrdinalIgnoreCase))
             .OrderBy(d => int.TryParse(d.Name, out _) ? 0 : 1)
