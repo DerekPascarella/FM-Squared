@@ -45,6 +45,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
                 _operationVersion++;
             }
             RaisePropertyChanged();
+            RaisePropertyChanged(nameof(CanConfigureDiscImages));
         }
     }
 
@@ -61,6 +62,8 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         get => _customSdPath;
         set { _customSdPath = value; RaisePropertyChanged(); RaisePropertyChanged(nameof(IsUsingCustomPath)); RaisePropertyChanged(nameof(HasSdPath)); }
     }
+
+    public bool CanConfigureDiscImages => !CannotEdit;
 
     public bool HasSdPath => !string.IsNullOrEmpty(_manager.SdCardPath);
 
@@ -101,6 +104,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
         UpdateManager.CleanupStaleStagingData();
 
         GameGrid.ItemsSource = _manager.ItemList;
+        _manager.PropertyChanged += (_, _) => Dispatcher.InvokeAsync(() => RaisePropertyChanged(nameof(CanConfigureDiscImages)));
 
         _manager.ItemList.CollectionChanged += (_, _) => { UpdateGamesListHeader(); UpdateSearchMatches(); };
 
@@ -174,6 +178,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
     private void ApplySettings()
     {
         LockCheckBox.IsChecked = _settings.EnableLockCheck;
+        _manager.ConversionFormat = _settings.ConversionFormat;
 
         if (!string.IsNullOrEmpty(_settings.TempFolder) && Directory.Exists(_settings.TempFolder))
             TempFolderTextBox.Text = _settings.TempFolder;
@@ -194,6 +199,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
     private void SaveSettings()
     {
         _settings.EnableLockCheck = LockCheckBox.IsChecked == true;
+        _settings.ConversionFormat = _manager.ConversionFormat;
         _settings.TempFolder = NormalizeTempFolderForSave(TempFolderTextBox.Text);
         _settings.WindowLeft = Left;
         _settings.WindowTop = Top;
@@ -561,6 +567,16 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
             OldOrder = oldOrder,
             NewOrder = _manager.ItemList.ToList()
         });
+    }
+
+    private void ButtonDiscImageOptions_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanConfigureDiscImages) return;
+        var dialog = new DiscImageOptionsWindow(_manager.ConversionFormat) { Owner = this };
+        dialog.ShowDialog();
+        if (!dialog.Saved || !CanConfigureDiscImages) return;
+        _manager.ConversionFormat = dialog.ConversionFormat;
+        SaveSettings();
     }
 
     private void ButtonSort_Click(object sender, RoutedEventArgs e)
@@ -1160,5 +1176,7 @@ public partial class MainWindow : Window, GongSolutions.Wpf.DragDrop.IDropTarget
     private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        if (propertyName == nameof(HasSdPath))
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanConfigureDiscImages)));
     }
 }

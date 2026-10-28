@@ -53,3 +53,9 @@ public enum RenameBy
     /// <summary>Use the disc image file name.</summary>
     File
 }
+
+public enum DiscConversionFormat
+{
+    Ccd,
+    Cdi
+}

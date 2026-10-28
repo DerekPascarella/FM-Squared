@@ -6,7 +6,7 @@ namespace FMSquared.Core;
 
 public static class Constants
 {
-    public const string Version = "2.0.2";
+    public const string Version = "2.1.0";
     public const string AppName = "FM^2";
     public const string AppDescription = "An SD card management tool for the FM Towns/FM Towns Marty ODEs DocBrown and Wizard.";
     public const string AppUrl = "https://github.com/DerekPascarella/FM-Squared";

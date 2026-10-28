@@ -20,6 +20,7 @@ Please note that DocBrown/Wizard SD cards must be formatted as FAT32.
   - [Removing Games](#removing-games)
   - [Editing Game Information](#editing-game-information)
   - [Reordering Games](#reordering-games)
+  - [Disc Image Options](#disc-image-options)
   - [Inserting a Floppy Boot Entry](#inserting-a-floppy-boot-entry)
   - [Searching and Filtering](#searching-and-filtering)
   - [Saving Changes](#saving-changes)
@@ -32,9 +33,12 @@ Please note that DocBrown/Wizard SD cards must be formatted as FAT32.
   - [Third-Party Components](#third-party-components)
 
 ## Current Version
-FM^2 is currently at version [2.0.2](https://github.com/DerekPascarella/FM-Squared/releases/tag/2.0.2).
+FM^2 is currently at version [2.1.0](https://github.com/DerekPascarella/FM-Squared/releases/tag/2.1.0).
 
 ## Changelog
+- **Version 2.1.0 (2026-10-28)**
+  - Progress status bar now gives detailed information (see [Issue 8](https://github.com/DerekPascarella/FM-Squared/issues/8)).
+  - New option to convert CUE-based disc images to CDI format instead of CCD/IMG/SUB (see [Issue 8](https://github.com/DerekPascarella/FM-Squared/issues/8)).
 - **Version 2.0.2 (2026-10-06)**
   - Dragging entry up or down on Games List now automatically scrolls on Linux and macOS (see [Issue 5](https://github.com/DerekPascarella/FM-Squared/issues/5)).
   - Improved SD card auto-detection (see [Issue 6](https://github.com/DerekPascarella/FM-Squared/issues/6)).
@@ -94,8 +98,8 @@ FM^2 is currently at version [2.0.2](https://github.com/DerekPascarella/FM-Squar
 | DiscJuggler | `.cdi` | Single-file disc image |
 | Alcohol 120% | `.mds`, `.mdf` | Two-file set |
 | CloneCD | `.ccd`, `.img`, `.sub` | Three-file set |
-| CUE-based | `.cue` (+ `.bin`, `.iso`, `.wav`, etc.) | Automatically converted to CCD/IMG/SUB |
-| CHD | `.chd` | Decompressed to CUE/BIN then converted to CCD/IMG/SUB |
+| CUE-based | `.cue` (+ `.bin`, `.iso`, `.wav`, etc.) | Automatically converted to CCD/IMG/SUB (default) or CDI |
+| CHD | `.chd` | Decompressed to CUE/BIN then converted to CCD/IMG/SUB (default) or CDI |
 | Compressed | `.zip`, `.7z`, `.rar` | Archives containing any of the above formats |
 
 ## Basic Usage
@@ -109,6 +113,8 @@ The **Temp. Folder** setting controls where temporary files are stored during op
 New games can be added by clicking the **+** button or by dragging disc image files, folders, or compressed archives directly onto the game list. Added games appear with "Other" in the **Location** column until changes are saved to the SD card.
 
 By default, newly added games are titled using the disc image's base file name, with Redump-style tags automatically stripped.
+
+CUE-based disc images are automatically converted to **CCD/IMG/SUB** (default) or **CDI** when **Save Changes** is clicked. See [Disc Image Options](#disc-image-options) to choose the conversion format.
 
 ### Removing Games
 Select one or more games in the list and click the **-** button. The corresponding numbered folders are deleted from the SD card when changes are saved.
@@ -128,6 +134,9 @@ Use the **up** and **down** arrow buttons to move a selected game in the list. G
 
 The Almanac and Spellbook menu systems display games in the order they appear in the list, so games can be arranged in any order desired, not just alphabetically.
 
+### Disc Image Options
+After loading an SD card or folder, click **Disc Image Options** to the right of **Sort List**. Under **Conversion Format**, select **CCD/IMG/SUB** (default) or **CDI**, then click **Save**. The preference is remembered and applies to automatic conversion of newly added CUE-based and CHD disc images, including those in supported archives. Images already on the SD card are not reconverted.
+
 ### Inserting a Floppy Boot Entry
 The **Insert Floppy Boot Entry** button adds a special "---Boot From Floppy---" entry to the top of the game list. This entry occupies a numbered folder containing no disc image, and launching it from the Almanac/Spellbook menu causes the FM Towns to boot from floppy disk. This is useful for software that must be started from FDD while the ODE is installed.
 
@@ -143,7 +152,7 @@ Clicking **Save Changes** writes all pending changes to the SD card. This includ
 - Renumbering game folders sequentially (starting from `02`) to match the list order.
 - Performing a FAT sort so the menu displays games in the correct order.
 - Copying new game files to the SD card.
-- Converting CUE-based disc images to CloneCD format and decompressing CHD disc images.
+- Converting newly added CUE-based and CHD disc images to the selected format (CCD/IMG/SUB or CDI).
 - Rebuilding the Almanac/Spellbook menu ISO in folder `01`.
 - Generating `GameList.txt` with a formatted list of all games on the card.
 - Writing or updating the `Title.txt` metadata file in each game folder.

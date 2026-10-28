@@ -44,6 +44,13 @@ public class Manager : INotifyPropertyChanged
     public bool NeedsRecovery => _needsRecovery;
     public bool CanEdit => !IsOperationActive && !NeedsRecovery;
 
+    private DiscConversionFormat _conversionFormat;
+    public DiscConversionFormat ConversionFormat
+    {
+        get => _conversionFormat;
+        set { EnsureCanMutate(); _conversionFormat = value == DiscConversionFormat.Cdi ? value : DiscConversionFormat.Ccd; }
+    }
+
     public Manager()
     {
         ItemList = new GuardedGameCollection(EnsureCanMutate, NotifyObservers);
@@ -321,6 +328,7 @@ public class Manager : INotifyPropertyChanged
         if (string.IsNullOrEmpty(SdCardPath))
             throw new InvalidOperationException("No SD card path set.");
         LastSaveOutcome = null;
+        progress?.Report("Preparing save...");
         await RecoverCardCoreAsync();
         string root = Path.GetFullPath(SdCardPath);
         string tools = ToolsPath;
@@ -516,6 +524,7 @@ public class Manager : INotifyPropertyChanged
             var format = game.FileFormat;
             if (game.FileFormat == FileFormat.Compressed)
             {
+                progress?.Report($"Extracting {Path.GetFileName(game.SourcePath)}...");
                 var entries = ArchiveHelper.GetArchiveEntries(game.SourcePath);
                 var selected = game.SelectedArchiveEntry ?? SelectPrimaryImageEntry(entries.Where(e => IsImageName(e.FullName)).ToList(), out _);
                 var expected = ArchiveEntrySelection.SelectForFlatExtraction(entries, selected);
@@ -551,9 +560,11 @@ public class Manager : INotifyPropertyChanged
             Dictionary<string, long> output;
             if (cue != null)
             {
-                output = Cue2CcdConverter.ExpectedOutput(cue);
-                if (!await Cue2CcdConverter.ConvertAsync(cue, destination, progress))
-                    throw new InvalidDataException("CUE conversion failed: " + cue);
+                bool cdi = ConversionFormat == DiscConversionFormat.Cdi;
+                output = cdi ? Cue2CdiConverter.ExpectedOutput(cue) : Cue2CcdConverter.ExpectedOutput(cue);
+                bool converted = cdi ? await Cue2CdiConverter.ConvertAsync(cue, destination, progress)
+                    : await Cue2CcdConverter.ConvertAsync(cue, destination, progress);
+                if (!converted) throw new InvalidDataException("CUE conversion failed: " + cue);
             }
             else
             {
@@ -570,6 +581,7 @@ public class Manager : INotifyPropertyChanged
                             throw new InvalidDataException("Missing image companion: " + companion);
                     }
                 }
+                progress?.Report($"Copying {game.Name} to folder {game.FolderNumberFormatted}...");
                 foreach (string file in files) await Task.Run(() => File.Copy(file, Path.Combine(destination, Path.GetFileName(file))));
             }
             if (work != null && onCard) tx.SealWorkDirectory(game.SaveId);
@@ -934,12 +946,22 @@ public class Manager : INotifyPropertyChanged
                 if (game.FileFormat == FileFormat.Compressed) result.ContainsEstimatedSizes = true;
                 if (format == FileFormat.CueBin)
                 {
-                    size = (long)(size * 1.25);
-                    result.ContainsEstimatedSizes = true;
+                    if (ConversionFormat == DiscConversionFormat.Cdi && game.FileFormat != FileFormat.Compressed)
+                    {
+                        string cue = game.ImageFiles.First(p => Path.GetExtension(p).Equals(".cue", StringComparison.OrdinalIgnoreCase));
+                        size = Cue2CdiConverter.ExpectedOutput(cue).Values.Sum();
+                    }
+                    else
+                    {
+                        size = (long)(size * 1.25);
+                        if (ConversionFormat == DiscConversionFormat.Cdi) size += 150L * 2448 + 4096;
+                        result.ContainsEstimatedSizes = true;
+                    }
                 }
                 else if (format == FileFormat.Chd)
                 {
                     size *= 2;
+                    long cdiSize = size + 150L * 2448 + 4096;
                     if (game.FileFormat != FileFormat.Compressed)
                     {
                         string? chdPath = game.ImageFiles.FirstOrDefault(p => Path.GetExtension(p).Equals(".chd", StringComparison.OrdinalIgnoreCase));
@@ -947,9 +969,12 @@ public class Manager : INotifyPropertyChanged
                         {
                             using var chd = new ChdReader(chdPath);
                             size = chd.Tracks.Sum(t => Math.Max(0L, t.Frames - t.Pad - t.Pregap) * 2448L) + 4096;
+                            cdiSize = chd.Tracks.Sum(t => (Math.Max(0L, t.Frames - t.Pad - t.Pregap) +
+                                (t.TrackNumber == 1 ? 150L : t.Pregap)) * 2352L) + 4096 + chd.Tracks.Count * 512L;
                         }
                     }
                     intermediate += size;
+                    if (ConversionFormat == DiscConversionFormat.Cdi) size = cdiSize;
                     result.ContainsEstimatedSizes = true;
                 }
                 result.NewItemsSize += size;

@@ -91,6 +91,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 HideDropLine();
             }
             RaisePropertyChanged();
+            RaisePropertyChanged(nameof(CanConfigureDiscImages));
         }
     }
 
@@ -107,6 +108,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => _customSdPath;
         set { _customSdPath = value; RaisePropertyChanged(); RaisePropertyChanged(nameof(IsUsingCustomPath)); RaisePropertyChanged(nameof(HasSdPath)); RaisePropertyChanged(nameof(CanModifyList)); }
     }
+
+    public bool CanConfigureDiscImages => !CannotEdit;
 
     public bool HasSdPath => !string.IsNullOrEmpty(_manager.SdCardPath);
 
@@ -149,6 +152,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateManager.CleanupStaleStagingData();
 
         GameGrid.ItemsSource = _manager.ItemList;
+        _manager.PropertyChanged += (_, _) => Dispatcher.UIThread.Post(() => RaisePropertyChanged(nameof(CanConfigureDiscImages)));
 
         _manager.ItemList.CollectionChanged += (_, _) => { UpdateGamesListHeader(); UpdateSearchMatches(); };
 
@@ -246,6 +250,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ApplySettings()
     {
         LockCheckBox.IsChecked = _settings.EnableLockCheck;
+        _manager.ConversionFormat = _settings.ConversionFormat;
 
         if (!string.IsNullOrEmpty(_settings.TempFolder) && Directory.Exists(_settings.TempFolder))
             TempFolderTextBox.Text = _settings.TempFolder;
@@ -265,6 +270,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SaveSettings()
     {
         _settings.EnableLockCheck = LockCheckBox.IsChecked == true;
+        _settings.ConversionFormat = _manager.ConversionFormat;
         _settings.TempFolder = NormalizeTempFolderForSave(TempFolderTextBox.Text);
         _settings.WindowLeft = Position.X;
         _settings.WindowTop = Position.Y;
@@ -679,6 +685,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OldOrder = oldOrder,
             NewOrder = _manager.ItemList.ToList()
         });
+    }
+
+    private async void ButtonDiscImageOptions_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!CanConfigureDiscImages) return;
+        var dialog = new DiscImageOptionsWindow(_manager.ConversionFormat);
+        await dialog.ShowDialog(this);
+        if (!dialog.Saved || !CanConfigureDiscImages) return;
+        _manager.ConversionFormat = dialog.ConversionFormat;
+        SaveSettings();
     }
 
     private async void ButtonSort_Click(object? sender, RoutedEventArgs e)
@@ -1545,5 +1561,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        if (propertyName == nameof(HasSdPath))
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanConfigureDiscImages)));
     }
 }
